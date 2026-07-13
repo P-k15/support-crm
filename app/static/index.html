@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Support CRM</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .status-Open { background:#DBEAFE; color:#1D4ED8; }
+  .status-In.Progress, .status-InProgress { background:#FEF3C7; color:#B45309; }
+  .status-Closed { background:#DCFCE7; color:#15803D; }
+</style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+
+<header class="bg-white border-b border-slate-200 sticky top-0 z-10">
+  <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">S</div>
+      <h1 class="text-lg font-semibold text-slate-800">Support CRM</h1>
+    </div>
+    <button id="newTicketBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+      + New Ticket
+    </button>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
+
+  <div class="flex flex-col sm:flex-row gap-3 mb-5">
+    <input id="searchInput" type="text" placeholder="Search by name, ID, email, or description..."
+      class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <select id="statusFilter" class="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All Statuses</option>
+      <option value="Open">Open</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Closed">Closed</option>
+    </select>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100 text-slate-600 text-left">
+        <tr>
+          <th class="px-4 py-3 font-medium">Ticket ID</th>
+          <th class="px-4 py-3 font-medium">Customer</th>
+          <th class="px-4 py-3 font-medium">Subject</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+          <th class="px-4 py-3 font-medium">Created</th>
+        </tr>
+      </thead>
+      <tbody id="ticketTableBody" class="divide-y divide-slate-100">
+      </tbody>
+    </table>
+    <div id="emptyState" class="hidden text-center text-slate-400 py-10 text-sm">No tickets found.</div>
+  </div>
+</main>
+
+<footer class="mt-12 border-t border-slate-200 bg-white">
+  <div class="max-w-6xl mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center text-sm text-slate-500">
+    <p>
+      © 2026 Support CRM. All rights reserved.
+    </p>
+    <p class="mt-2 sm:mt-0">
+      Built with ❤️ by
+      <span class="font-semibold text-slate-700">Piyush Waghmare</span>
+      using FastAPI, SQLite & Tailwind CSS
+    </p>
+  </div>
+</footer>
+
+<div id="modalOverlay" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-20">
+  <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+    <h2 class="text-lg font-semibold text-slate-800 mb-4">Create New Ticket</h2>
+    <form id="createForm" class="space-y-3">
+      <div>
+        <label class="text-xs font-medium text-slate-600">Customer Name</label>
+        <input required name="customer_name" class="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-600">Customer Email</label>
+        <input required type="email" name="customer_email" class="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-600">Issue Title</label>
+        <input required name="subject" class="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-600">Description</label>
+        <textarea required name="description" rows="3" class="w-full mt-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+      </div>
+      <p id="formError" class="text-red-600 text-xs hidden"></p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" id="cancelBtn" class="px-4 py-2 text-sm rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
+        <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const tableBody = document.getElementById('ticketTableBody');
+const emptyState = document.getElementById('emptyState');
+const searchInput = document.getElementById('searchInput');
+const statusFilter = document.getElementById('statusFilter');
+const modalOverlay = document.getElementById('modalOverlay');
+const createForm = document.getElementById('createForm');
+const formError = document.getElementById('formError');
+
+function statusClass(status) {
+  if (status === 'Open') return 'bg-blue-100 text-blue-700';
+  if (status === 'In Progress') return 'bg-amber-100 text-amber-700';
+  if (status === 'Closed') return 'bg-green-100 text-green-700';
+  return 'bg-slate-100 text-slate-600';
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+async function fetchTickets() {
+  const params = new URLSearchParams();
+  if (searchInput.value.trim()) params.set('search', searchInput.value.trim());
+  if (statusFilter.value) params.set('status', statusFilter.value);
+
+  const res = await fetch(`/api/tickets?${params.toString()}`);
+  const tickets = await res.json();
+
+  tableBody.innerHTML = '';
+  if (tickets.length === 0) {
+    emptyState.classList.remove('hidden');
+    return;
+  }
+  emptyState.classList.add('hidden');
+
+  for (const t of tickets) {
+    const row = document.createElement('tr');
+    row.className = 'hover:bg-slate-50 cursor-pointer';
+    row.onclick = () => { window.location.href = `/ticket.html?id=${encodeURIComponent(t.ticket_id)}`; };
+    row.innerHTML = `
+      <td class="px-4 py-3 font-medium text-slate-700">${t.ticket_id}</td>
+      <td class="px-4 py-3 text-slate-600">${t.customer_name}</td>
+      <td class="px-4 py-3 text-slate-600">${t.subject}</td>
+      <td class="px-4 py-3"><span class="text-xs font-medium px-2 py-1 rounded-full ${statusClass(t.status)}">${t.status}</span></td>
+      <td class="px-4 py-3 text-slate-500">${formatDate(t.created_at)}</td>
+    `;
+    tableBody.appendChild(row);
+  }
+}
+
+let searchTimeout;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(fetchTickets, 250); // debounce, search-as-you-type
+});
+statusFilter.addEventListener('change', fetchTickets);
+
+document.getElementById('newTicketBtn').onclick = () => modalOverlay.classList.remove('hidden');
+document.getElementById('cancelBtn').onclick = () => modalOverlay.classList.add('hidden');
+
+createForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  formError.classList.add('hidden');
+  const data = Object.fromEntries(new FormData(createForm).entries());
+
+  const res = await fetch('/api/tickets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    formError.textContent = err.detail ? JSON.stringify(err.detail) : 'Failed to create ticket.';
+    formError.classList.remove('hidden');
+    return;
+  }
+
+  createForm.reset();
+  modalOverlay.classList.add('hidden');
+  fetchTickets();
+});
+
+fetchTickets();
+</script>
+</body>
+</html>
